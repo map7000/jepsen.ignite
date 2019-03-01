@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<!--
+    Ignite configuration with all defaults and enabled p2p deployment and enabled events.
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/util
+        http://www.springframework.org/schema/util/spring-util.xsd">
+    <bean id="ignite.cfg" class="org.apache.ignite.configuration.IgniteConfiguration">
+        <!-- Set to true to enable distributed class loading for examples, default is false. -->
+        <property name="peerClassLoadingEnabled" value="true"/>
+        <property name="igniteInstanceName" value ="#{hostname+UUIDSting+'_Server'}"/>
+        <!-- Enable task execution events for examples. -->
+        <property name="includeEventTypes">
+            <list>
+                <!--Task execution events-->
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_TASK_STARTED"/>
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_TASK_FINISHED"/>
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_TASK_FAILED"/>
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_TASK_TIMEDOUT"/>
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_TASK_SESSION_ATTR_SET"/>
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_TASK_REDUCED"/>
+
+                <!--Cache events-->
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_PUT"/>
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_READ"/>
+                <util:constant static-field="org.apache.ignite.events.EventType.EVT_CACHE_OBJECT_REMOVED"/>
+            </list>
+        </property>
+        <property name="binaryConfiguration">
+            <ref bean="dplBinaryConfiguration"/>
+        </property>
+
+        <property name="communicationSpi">
+                <bean class="org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi">
+                    <!--Default: 47100-->
+                    <property name="localPort" value="57100"/>
+                </bean>
+        </property>
+        <property name="connectorConfiguration">
+            <ref bean="dplConnectorConfiguration"/>
+        </property>
+        <property name="dataStorageConfiguration">
+            <ref bean="dplDataStorageConfiguration"/>
+        </property>
+
+        <!-- Explicitly configure TCP discovery SPI to provide list of initial nodes. -->
+        <property name="discoverySpi">
+            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
+                <!--Default: 47500-->
+                <property name="localPort" value="57500"/>
+                <property name="ipFinder">
+                    <!--
+                        Ignite provides several options for automatic discovery that can be used
+                        instead os static IP based discovery. For information on all options refer
+                        to our documentation: http://apacheignite.readme.io/docs/cluster-config
+                    -->
+                    <!-- Uncomment static IP finder to enable static-based discovery of initial nodes. -->
+                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
+                    <!-- <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.multicast.TcpDiscoveryMulticastIpFinder"> -->
+                        <property name="addresses">
+                            <list>
+                                <!-- In distributed environment, replace with actual host IP address. -->
+                                <value>grid791:57500..57509</value>
+                                <value>grid474:57500..57509</value>
+                                <value>grid492:57500..57509</value>
+                                <value>grid510:57500..57509</value>
+                                <value>grid528:57500..57509</value>
+                                <value>grid785:57500..57509</value>
+                                <value>grid786:57500..57509</value>
+                                <value>grid787:57500..57509</value>
+                                <value>grid788:57500..57509</value>
+                                <value>grid789:57500..57509</value>
+                                <value>grid790:57500..57509</value>
+                                <value>grid792:57500..57509</value>
+                                <value>grid838:57500..57509</value>
+                                <value>grid856:57500..57509</value>
+                                <value>grid874:57500..57509</value>
+                                <value>grid892:57500..57509</value>
+                            </list>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+    <bean id="dplBinaryConfiguration" class="org.apache.ignite.configuration.BinaryConfiguration">
+        <property name="compactFooter" value="true"/>
+    </bean>
+    <bean id="dplDefaultDataRegionConfiguration" class="org.apache.ignite.configuration.DataRegionConfiguration">
+        <property name="name" value="dpl_mem_plc"/>
+        <property name="persistenceEnabled" value="false"/>
+        <property name="maxSize" value="#{512L * 1024 * 1024}"/>
+        <property name="metricsEnabled" value="true"/>
+        <property name="metricsRateTimeInterval" value="1000"/>
+        <property name="checkpointPageBufferSize" value="#{16*1024*1024L}"/>
+    </bean>
+    <bean id="dplConnectorConfiguration" class="org.apache.ignite.configuration.ConnectorConfiguration">
+        <property name="idleTimeout" value="180000"/>
+        <!--Default: 11211-->
+        <property name="port" value="11311"/>
+    </bean>
+    <bean id="dplDataStorageConfiguration" class="org.apache.ignite.configuration.DataStorageConfiguration">
+        <property name="pageSize" value="#{4 * 1024}"/>
+        <property name="defaultDataRegionConfiguration">
+            <ref bean="dplDefaultDataRegionConfiguration"/>
+        </property>
+        <property name="checkpointFrequency" value="30000"/>
+        <property name="walHistorySize" value="2147483647"/>
+        <property name="walArchivePath" value="/gridgain/sas/storage/wal_archive_jepsen"/>
+        <property name="walSegmentSize" value="#{1024*1024*1024}"/>
+        <property name="walMode" value="LOG_ONLY"/>
+        <property name="walBufferSize" value="5242880"/>
+        <property name="walCompactionEnabled" value="true"/>
+    </bean>
+    <bean id="localhostInetAddress"
+      class="java.net.InetAddress"
+      factory-method="getLocalHost"/>
+    <bean id="hostname"
+      factory-bean="localhostInetAddress"
+      factory-method="getHostName"/>
+    <bean id="UUID"
+      class="java.util.UUID"
+      factory-method="randomUUID"/>
+    <bean id="UUIDSting"
+      factory-bean="UUID"
+      factory-method="toString"/>
+</beans>
