@@ -25,7 +25,7 @@
              (java.lang Integer)
              (java.io File FileNotFoundException)))
 
-(def dir "/tmp/jepsen.ignite")
+(def dir "/jepsen.ignite")
 (def logfile (str dir "/ignite.log"))
 (def pidfile (str dir "/ignite.pid"))
 
@@ -62,7 +62,7 @@
         (info node (str "Copy Ignite-" version))
         (c/upload (str "./resources/ignite.tar.gz") dir)
         (info node (str "Untar Ignite-" version))
-        (c/exec "tar -zxf ignite.tar.gz")))
+        (c/exec :tar :-zxf :ignite.tar.gz)))
 
 (defn configure!
   "Uploads configuration files to the given node."
