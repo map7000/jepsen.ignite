@@ -25,7 +25,8 @@
              (java.lang Integer)
              (java.io File FileNotFoundException)))
 
-(def dir "/jepsen.ignite")
+;(def dir "/gridgain/sas/jepsen.ignite")
+(def dir "/tmp/jepsen.ignite")
 (def logfile (str dir "/ignite.log"))
 (def pidfile (str dir "/ignite.pid"))
 
@@ -60,9 +61,9 @@
   (c/exec :touch (str dir "/ignite.log"))
   (c/cd (str dir)
         (info node (str "Copy Ignite-" version))
-        (c/upload (str "./resources/ignite.tar.gz") dir)
-        (info node (str "Untar Ignite-" version))
-        (c/exec :tar :-zxf :ignite.tar.gz)))
+        (c/upload (str "/gridgain/sas/apache-ignite-" version "-bin.zip") dir)
+        (info node (str "Unzip Ignite-" version))
+        (c/exec :unzip :-qqo (str "apache-ignite-" version "-bin.zip"))))
 
 (defn configure!
   "Uploads configuration files to the given node."

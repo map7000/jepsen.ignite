@@ -17,7 +17,8 @@
               [jepsen.ignite.support :as s]
               [clojure.tools.logging :refer :all]
               [knossos.model :as model]
-              [knossos.op :as op]))
+              [knossos.op :as op])
+    (:import (org.apache.ignite.transactions TransactionTimeoutException TransactionDeadlockException)))
 
 (def cacheName "accounts")
 
@@ -36,6 +37,7 @@
   client/Client
   (open! [this test node]
     (System/setProperty "IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD" "60000")
+    (System/setProperty "IGNITE_UPDATE_NOTIFIER" "false")
     (assoc this :ignite (c/startClient!)))
   (setup! [this test]
     (info "Start setup")
@@ -56,20 +58,31 @@
     (case (:f op)
           :read (let [value (c/getCacheValues ignite cacheName)]
                   (assoc op :type :ok :value value))
-
           :transfer
-          (let [{:keys [from to amount]} (:value op)
-                b1                       (- (c/getValue ignite cacheName from) amount)
-                b2                       (+ (c/getValue ignite cacheName to) amount)]
-            (cond
-             (neg? b1)
-             (assoc op :type :fail, :error [:negative from b1])
-             (neg? b2)
-             (assoc op :type :fail, :error [:negative to b2])
-             true
-             (do (c/putValue! ignite cacheName from b1)
-               (c/putValue! ignite cacheName to b2)
-               (assoc op :type :ok))))))
+          (let [transaction (.transactions ignite)
+                cache (.cache ignite cacheName)]
+            (let [tx (.txStart transaction transactionConcurrency transactionIsolation)]
+              (.timeout tx 2000)
+              (try
+                (let [{:keys [from to amount]} (:value op)
+                      b1                       (-(c/getValue cache from) amount)
+                      b2                       (+(c/getValue cache to) amount)
+                      ]
+                  (cond
+                   (neg? b1)
+                   (do (.commit tx) (assoc op :type :fail, :error [:negative from b1]))
+                   (neg? b2)
+                   (do (.commit tx) (assoc op :type :fail, :error [:negative to b2]))
+                   true
+                   (do
+                     (c/putValue! ignite cacheName from b1)
+                     (c/putValue! ignite cacheName to b2)
+                     (.commit tx)
+                     (assoc op :type :ok))))
+                (catch TransactionTimeoutException eTimeOut (info "Timeout") (assoc op :type :fail, :error [:timeout]))
+                (catch TransactionDeadlockException eDeadLock (info "Deadlock") (assoc op :type :fail, :error [:deadlock]))
+                (finally (.close tx))))
+            )))
 
   (teardown! [this test] (.close ignite))
   (close! [this test] (.close ignite)))
@@ -86,9 +99,9 @@
   (let [n (-> test :client :n)]
     {:type  :invoke
      :f     :transfer
-     :value {:from   (rand-int n)
-             :to     (rand-int n)
-             :amount (+ 1 (rand-int 5))}}))
+     :value {:from   (long (rand n))
+             :to     (long (rand n))
+             :amount (+ 1 (long (rand 5)))}}))
 
 (def bank-diff-transfer
   "Like transfer, but only transfers between *different* accounts."
@@ -132,21 +145,6 @@
             {:valid?    (empty? bad-reads)
              :bad-reads bad-reads}))))
 
-;(defn bank-test-base
-;  [opts]
-;  (cockroach/basic-test
-;   (merge
-;    {:client      {:client (:client opts)
-;                   :during (->> (gen/mix [bank-read bank-diff-transfer])
-;                                (gen/clients))
-;
-;                   :final (gen/clients (gen/once bank-read))}
-;     :checker     (checker/compose
-;                   {:perf    (checker/perf)
-;                    :timeline (timeline/html)
-;                    :details (bank-checker)})}
-;    (dissoc opts :client))))
-
 (defn test
   [opts]
   (let [cacheMode                     (get c/cacheModes (:cacheMode opts))
@@ -160,94 +158,16 @@
            {:name      (str "BANK_" (:name opts) "_" (:cacheMode opts) "_" (:cacheAtomicityMode opts) "_" (:readFromBackup opts) "_" (:cacheWriteSynchronizationMode opts) "_" (:transactionConcurrency opts) "_" (:transactionIsolation opts))
             :db        (s/db "2.7.0")
             :client    (BankClient. nil (:cacheName opts) cacheMode cacheAtomicityMode readFromBackup cacheWriteSynchronizationMode transactionConcurrency transactionIsolation (atom false) 5 10)
-            :during    (->> (gen/mix [bank-read bank-diff-transfer])
-                            (gen/clients))
-
-            :final     (gen/clients (gen/once bank-read))
+;            :during    (->> (gen/mix [bank-read bank-diff-transfer])
+;                            (gen/clients))
+            :model  {:n 5 :total 50}
+;            :final     (gen/clients (gen/once bank-read))
             :generator (->> (gen/mix [bank-read bank-diff-transfer])
-                            (gen/stagger 1/50)
+                            (gen/stagger 1/10)
                             (gen/nemesis nil)
                             (gen/time-limit (:time-limit opts)))
             :checker   (checker/compose
-                        {:perf     (checker/perf)
+                        {:perf    (checker/perf)
                          :timeline (timeline/html)
-                         :details  (bank-checker)
-                         :model    {:n 5 :total 50}})}
+                         :details (bank-checker)})}
            opts)))
-
-; One bank account per table
-;(defrecord MultiBankClient [tbl-created? n starting-balance conn]
-;  client/Client
-;  (open! [this test node]
-;    (assoc this :conn (c/client node)))
-;
-;  (setup! [this test]
-;    (locking tbl-created?
-;             (when (compare-and-set! tbl-created? false true)
-;                   (c/with-conn [c conn]
-;                                (dotimes [i n]
-;                                  (Thread/sleep 500)
-;                                  (c/with-txn-retry
-;                                   (j/execute! c [(str "drop table if exists accounts" i)]))
-;                                  (Thread/sleep 500)
-;                                  (info "Creating table " i)
-;                                  (c/with-txn-retry
-;                                   (j/execute! c [(str "create table accounts" i
-;                                                       " (balance bigint not null)")]))
-;                                  (Thread/sleep 500)
-;                                  (info "Populating account" i)
-;                                  (c/with-txn-retry
-;                                   (c/insert! c (str "accounts" i) {:balance starting-balance})))))))
-;
-;  (invoke! [this test op]
-;    (c/with-exception->op op
-;                          (c/with-conn [c conn]
-;                                       (c/with-timeout
-;                                        (c/with-txn-retry
-;                                         (c/with-txn [c c]
-;                                                     (case (:f op)
-;                                                           :read
-;                                                           (->> (range n)
-;                                                                (mapv (fn [x]
-;                                                                        (->> (c/query
-;                                                                              c [(str "select balance from accounts" x)]
-;                                                                              {:row-fn :balance})
-;                                                                             first)))
-;                                                                (assoc op :type :ok, :value))
-;
-;                                                           :transfer
-;                                                           (let [{:keys [from to amount]} (:value op)
-;                                                                 from (str "accounts" from)
-;                                                                 to   (str "accounts" to)
-;                                                                 b1 (-> c
-;                                                                        (c/query
-;                                                                         [(str "select balance from " from)]
-;                                                                         {:row-fn :balance})
-;                                                                        first
-;                                                                        (- amount))
-;                                                                 b2 (-> c
-;                                                                        (c/query [(str "select balance from " to)]
-;                                                                                 {:row-fn :balance})
-;                                                                        first
-;                                                                        (+ amount))]
-;                                                             (cond (neg? b1)
-;                                                                   (assoc op :type :fail, :error [:negative from b1])
-;
-;                                                                   (neg? b2)
-;                                                                   (assoc op :type :fail, :error [:negative to b2])
-;
-;                                                                   true
-;                                                                   (do (c/update! c from {:balance b1} [])
-;                                                                     (c/update! c to   {:balance b2} [])
-;                                                                     (assoc op :type :ok)))))))))))
-;
-;  (teardown! [this test](.close ignite))
-;  (close! [this test](.close ignite)))
-;
-;(defn multitable-test
-;  [opts]
-;  (bank-test-base
-;   (merge {:name   "bank-multitable"
-;           :model  {:n 5 :total 50}
-;           :client (MultiBankClient. (atom false) 5 10 nil)}
-;          opts)))

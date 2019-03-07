@@ -61,6 +61,7 @@
   client/Client
   (open! [this test node]
     (System/setProperty "IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD" "60000")
+    (System/setProperty "IGNITE_UPDATE_NOTIFIER" "false")
     (assoc this :ignite (c/startClient!)))
   (setup! [this test]
     (c/createCache! ignite cacheName cacheMode cacheAtomicityMode cacheWriteSynchronizationMode readFromBackup))
