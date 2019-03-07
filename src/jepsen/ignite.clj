@@ -76,7 +76,7 @@
   (cli/run!
     (merge
       (cli/single-test-cmd
-        {:test-fn  cas/test
+        {:test-fn  bank/test
          :opt-spec cli-opts})
       (cli/serve-cmd))
     args))

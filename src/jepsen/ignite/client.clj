@@ -9,7 +9,7 @@
              (org.apache.ignite.transactions TransactionConcurrency TransactionIsolation)
              (org.apache.ignite.cache.query ScanQuery)
              (org.apache.ignite.lang IgniteBiTuple)
-             (java.lang Integer)
+             (java.lang Long)
              (java.io File FileNotFoundException)))
 
 ;Настройки кэша
@@ -56,13 +56,13 @@
    readFromBackup]
   (let [cfg (new CacheConfiguration cacheName)]
     (do
-      (.setTypes cfg (.getClass Integer) (.getClass Integer))
+      (.setTypes cfg (.getClass Long) (.getClass Long))
       (.setBackups cfg 10)
       (.setCacheMode cfg cacheMode)
       (.setAtomicityMode cfg cacheAtomicityMode)
       (.setWriteSynchronizationMode cfg cacheWriteSynchronizationMode)
       (.setReadFromBackup cfg readFromBackup)
-      (.setIndexedTypes cfg (into-array (list (.getClass Integer) (.getClass Integer))))
+      (.setIndexedTypes cfg (into-array (list (.getClass Long) (.getClass Long))))
       (.getOrCreateCache ignite cfg))))
 
 (defn destroyCache!
@@ -70,19 +70,26 @@
   (.destroyCache ignite cacheName))
 (defn putValue!
   [ignite cacheName key value]
-  (let [cache (.cache ignite cacheName)] (.put cache key value)))
+  (let [cache (.cache ignite cacheName)] (.put cache (long key) (long value))))
 (defn getValue
   [ignite cacheName key]
-  (let [cache (.cache ignite cacheName)] (.get cache key)))
+  (let [cache (.cache ignite cacheName)] (.get cache (long key))))
+(defn getValue
+  [cache key]
+  (.get cache (long key)))
 (defn updateBalance!
   [ignite cacheName key change]
   (let [cache (.cache ignite cacheName)
-        value (.get cache key)]
-    (.put cache key (+ value change))))
+        value (.get cache (long key))]
+    (.put cache (long key) (long (+ value change)))))
 (defn getCacheValues
   [ignite cacheName]
   (let [cache (.cache ignite cacheName)]
-    (map #(.getValue %) (iterator-seq (.iterator (.query cache (new ScanQuery nil)))))))
+    (map #(^Long .getValue %) (iterator-seq (.iterator (.query cache (new ScanQuery nil)))))))
+(defn getCacheKeys
+  [ignite cacheName]
+  (let [cache (.cache ignite cacheName)]
+    (map #(^Long .getKey %) (iterator-seq (.iterator (.query cache (new ScanQuery nil)))))))
 
 (defn startClient!
   []
