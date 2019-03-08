@@ -1,23 +1,27 @@
-FROM ubuntu:16.04
-MAINTAINER jake@apache.org
+FROM openjdk:8-alpine
 
 ENV LEIN_ROOT true
 
-#
-# Jepsen dependencies
-#
-RUN apt-get -y -q update && \
-    apt-get -y -q install software-properties-common && \
-    add-apt-repository ppa:openjdk-r/ppa && \
-    apt-get -y -q update && \
-    apt-get install -qqy \
-        openjdk-8-jdk \
-        libjna-java \
-        git \
-        gnuplot \
-        wget \
-        maven \
-	vim # not required by jepsen itself, just for ease of use
+RUN apk update && apk upgrade
+RUN apk add \
+  net-tools \
+  sudo \
+  iptables \
+  logrotate \
+  gnuplot \
+  vim \
+  openssh \
+  maven
+
+# configure ssh configs
+RUN mkdir -p /var/run/sshd && \
+    sed -i "s/UsePrivilegeSeparation.*/UsePrivilegeSeparation no/g" /etc/ssh/sshd_config && \
+    sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    touch /root/.Xauthority true
+
+RUN chmod 755 /var/run/sshd
+ARG PASSWORD=root
+RUN echo 'root:'${PASSWORD} | chpasswd
 
 RUN wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && \
     mv lein /usr/bin && \
