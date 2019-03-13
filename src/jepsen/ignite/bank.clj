@@ -18,7 +18,7 @@
               [clojure.tools.logging :refer :all]
               [knossos.model :as model]
               [knossos.op :as op])
-    (:import (org.apache.ignite.transactions TransactionTimeoutException TransactionDeadlockException)))
+    (:import (org.apache.ignite.transactions TransactionTimeoutException TransactionDeadlockException TransactionException TransactionOptimisticException)))
 
 (def cacheName "accounts")
 
@@ -44,30 +44,39 @@
     (locking tbl-created?
              (when (compare-and-set! tbl-created? false true)
                    (info "Setup")
-                   ;                   (Thread/sleep 1000)
                    (c/destroyCache! ignite cacheName)
-                   ;                   (Thread/sleep 1000)
                    (info "Creating table")
                    (c/createCache! ignite cacheName cacheMode cacheAtomicityMode cacheWriteSynchronizationMode readFromBackup)
                    (dotimes [i n]
-                     ;                     (Thread/sleep 500)
                      (info "Creating account" i starting-balance)
                      (c/putValue! ignite cacheName i starting-balance)))))
 
   (invoke! [this test op]
     (case (:f op)
-          :read (let [value (c/getCacheValues ignite cacheName)]
-                  (assoc op :type :ok :value value))
+          :read (let [transaction (.transactions ignite)
+                      cache       (.cache ignite cacheName)]
+                  (let [tx (.txStart transaction transactionConcurrency transactionIsolation)]
+                    (.timeout tx 2000)
+                    (try
+                      (let [value (vals (.getAll cache (set (range n))))]
+                        (.commit tx)
+                        (assoc op :type :ok :value value))
+                      (catch org.apache.ignite.transactions.TransactionTimeoutException eTimeOut (info "TransactionTimeoutException") (assoc op :type :fail, :error [:timeout]))
+                      (catch org.apache.ignite.transactions.TransactionDeadlockException eDeadLock (info "TransactionDeadlockException") (assoc op :type :fail, :error [:deadlock]))
+                      (catch org.apache.ignite.transactions.TransactionOptimisticException eOptimistic (info "TransactionOptimisticException")
+                        (assoc op :type :fail, :error [:optimistic]))
+                      (catch javax.cache.CacheException e (info "exception") (assoc op :type :fail, :error [:javax.cache.CacheException]))
+                      (catch java.lang.Exception e2 (info "exception2") (assoc op :type :fail, :error [:java.lang.Exception]))
+                      (finally (.close tx)))))
           :transfer
           (let [transaction (.transactions ignite)
-                cache (.cache ignite cacheName)]
+                cache       (.cache ignite cacheName)]
             (let [tx (.txStart transaction transactionConcurrency transactionIsolation)]
               (.timeout tx 2000)
               (try
                 (let [{:keys [from to amount]} (:value op)
-                      b1                       (-(c/getValue cache from) amount)
-                      b2                       (+(c/getValue cache to) amount)
-                      ]
+                      b1                       (- (c/getValue cache from) amount)
+                      b2                       (+ (c/getValue cache to) amount)]
                   (cond
                    (neg? b1)
                    (do (.commit tx) (assoc op :type :fail, :error [:negative from b1]))
@@ -79,10 +88,13 @@
                      (c/putValue! ignite cacheName to b2)
                      (.commit tx)
                      (assoc op :type :ok))))
-                (catch TransactionTimeoutException eTimeOut (info "Timeout") (assoc op :type :fail, :error [:timeout]))
-                (catch TransactionDeadlockException eDeadLock (info "Deadlock") (assoc op :type :fail, :error [:deadlock]))
-                (finally (.close tx))))
-            )))
+                (catch org.apache.ignite.transactions.TransactionTimeoutException eTimeOut (info "TransactionTimeoutException") (assoc op :type :fail, :error [:timeout]))
+                (catch org.apache.ignite.transactions.TransactionDeadlockException eDeadLock (info "TransactionDeadlockException") (assoc op :type :fail, :error [:deadlock]))
+                (catch org.apache.ignite.transactions.TransactionOptimisticException eOptimistic (info "TransactionOptimisticException")
+                  (assoc op :type :fail, :error [:optimistic]))
+                (catch javax.cache.CacheException e (info "exception") (assoc op :type :fail, :error [:javax.cache.CacheException]))
+                (catch java.lang.Exception e2 (info "exception2") (assoc op :type :fail, :error [:java.lang.Exception]))
+                (finally (.close tx)))))))
 
   (teardown! [this test] (.close ignite))
   (close! [this test] (.close ignite)))
@@ -158,16 +170,13 @@
            {:name      (str "BANK_" (:name opts) "_" (:cacheMode opts) "_" (:cacheAtomicityMode opts) "_" (:readFromBackup opts) "_" (:cacheWriteSynchronizationMode opts) "_" (:transactionConcurrency opts) "_" (:transactionIsolation opts))
             :db        (s/db "2.7.0")
             :client    (BankClient. nil (:cacheName opts) cacheMode cacheAtomicityMode readFromBackup cacheWriteSynchronizationMode transactionConcurrency transactionIsolation (atom false) 5 10)
-;            :during    (->> (gen/mix [bank-read bank-diff-transfer])
-;                            (gen/clients))
-            :model  {:n 5 :total 50}
-;            :final     (gen/clients (gen/once bank-read))
+            :model     {:n 5 :total 50}
             :generator (->> (gen/mix [bank-read bank-diff-transfer])
                             (gen/stagger 1/10)
                             (gen/nemesis nil)
                             (gen/time-limit (:time-limit opts)))
             :checker   (checker/compose
-                        {:perf    (checker/perf)
+                        {:perf     (checker/perf)
                          :timeline (timeline/html)
-                         :details (bank-checker)})}
+                         :details  (bank-checker)})}
            opts)))

@@ -83,13 +83,18 @@
         value (.get cache (long key))]
     (.put cache (long key) (long (+ value change)))))
 (defn getCacheValues
-  [ignite cacheName]
-  (let [cache (.cache ignite cacheName)]
-    (map #(^Long .getValue %) (iterator-seq (.iterator (.query cache (new ScanQuery nil)))))))
+  [ignite cacheName transactionConcurrency transactionIsolation n]
+  (let [transaction (.transactions ignite)
+        cache       (.cache ignite cacheName)]
+    (with-open [tx (.txStart transaction transactionConcurrency transactionIsolation)]
+      (.timeout tx 2000)
+      (let [result (vals (.getAll cache (set (range n))))]
+        (.commit tx) result))))
 (defn getCacheKeys
   [ignite cacheName]
   (let [cache (.cache ignite cacheName)]
-    (map #(^Long .getKey %) (iterator-seq (.iterator (.query cache (new ScanQuery nil)))))))
+    (map #(^Long .getKey %)
+         (iterator-seq (.iterator (.query cache (new ScanQuery nil)))))))
 
 (defn startClient!
   []
