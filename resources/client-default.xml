@@ -75,10 +75,22 @@
                         <property name="addresses">
                             <list>
                                 <!-- In distributed environment, replace with actual host IP address. -->
-                                <value>n1:57500..57509</value>
-                                <value>n2:57500..57509</value>
-                                <value>n4:57500..57509</value>
-                                <value>n5:57500..57509</value>
+                                <value>grid791:57500..57509</value>
+                                <value>grid474:57500..57509</value>
+                                <value>grid492:57500..57509</value>
+                                <value>grid510:57500..57509</value>
+                                <value>grid528:57500..57509</value>
+                                <value>grid785:57500..57509</value>
+                                <value>grid786:57500..57509</value>
+                                <value>grid787:57500..57509</value>
+                                <value>grid788:57500..57509</value>
+                                <value>grid789:57500..57509</value>
+                                <value>grid790:57500..57509</value>
+                                <value>grid792:57500..57509</value>
+                                <value>grid838:57500..57509</value>
+                                <value>grid856:57500..57509</value>
+                                <value>grid874:57500..57509</value>
+                                <value>grid892:57500..57509</value>
                             </list>
                         </property>
                     </bean>
