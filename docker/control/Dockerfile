@@ -11,6 +11,7 @@ RUN apk add \
   gnuplot \
   vim \
   openssh \
+  bash \
   maven
 
 # configure ssh configs
@@ -26,11 +27,10 @@ RUN echo 'root:'${PASSWORD} | chpasswd
 RUN wget https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein && \
     mv lein /usr/bin && \
     chmod +x /usr/bin/lein && \
-    lein self-install
 
 # You need to locate jepsen in this directory (up.sh does that automatically)
 ADD jepsen /jepsen
-RUN cd /jepsen/jepsen && lein install
+RUN cd /jepsen && lein install
 
 ADD ./bashrc /root/.bashrc
 ADD ./init.sh /init.sh
