@@ -7,8 +7,6 @@
                [tests :as tests]
                [checker :as checker]
                [generator :as gen]
-               [independent :as independent]
-               [reconnect :as rc]
                [util :as util
                 :refer   [meh]]]
               [jepsen.checker.timeline :as timeline]
@@ -16,9 +14,7 @@
               [clojure.core.reducers :as r]
               [jepsen.ignite.support :as s]
               [clojure.tools.logging :refer :all]
-              [knossos.model :as model]
-              [knossos.op :as op])
-    (:import (org.apache.ignite.transactions TransactionTimeoutException TransactionDeadlockException TransactionException TransactionOptimisticException)))
+              [knossos.op :as op]))
 
 (def cacheName "accounts")
 

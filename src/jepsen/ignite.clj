@@ -1,31 +1,9 @@
 (ns jepsen.ignite
     (:require [clojure.tools.logging :refer :all]
-              [clojure.string :as str]
               [jepsen
-               [cli :as cli]
-               [tests :as tests]
-               [control :as c]
-               [db :as db]
-               [util :as ju]
-               [client :as client]
-               [checker :as checker]
-               [nemesis :as nemesis]
-               [generator :as gen]
-               [checker :as checker]
-               [checker :as checker]
-               [independent :as independent]]
-              [jepsen.checker.timeline :as timeline]
-              [knossos.model :as model]
-              [jepsen.control.util :as cu]
-              [jepsen.ignite.support :as s]
+               [cli :as cli]]
               [jepsen.ignite.cas :as cas]
-              [jepsen.ignite.bank :as bank])
-    (:import (clojure.lang ExceptionInfo)
-             (org.apache.ignite Ignition IgniteCache)
-             (org.apache.ignite.cache CacheMode CacheAtomicityMode)
-             (org.apache.ignite.configuration CacheConfiguration)
-             (org.apache.ignite.transactions TransactionConcurrency TransactionIsolation)
-             (java.io File FileNotFoundException)))
+              [jepsen.ignite.bank :as bank]))
 
 
 (def cli-opts

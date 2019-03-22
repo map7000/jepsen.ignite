@@ -83,10 +83,11 @@
                         <property name="addresses">
                             <list>
                                 <!-- In distributed environment, replace with actual host IP address. -->
-                                <value>n1:57500..57509</value>
-                                <value>n2:57500..57509</value>
-                                <value>n4:57500..57509</value>
-                                <value>n5:57500..57509</value>
+                                <value>10.0.0.9:57500..57509</value>
+                                <value>10.0.0.10:57500..57509</value>
+                                <value>10.0.0.11:57500..57509</value>
+                                <value>10.0.0.12:57500..57509</value>
+                                <value>10.0.0.13:57500..57509</value>
                             </list>
                         </property>
                     </bean>

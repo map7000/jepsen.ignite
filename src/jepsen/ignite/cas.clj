@@ -1,11 +1,7 @@
 (ns jepsen.ignite.cas
     (:require [clojure.tools.logging :refer :all]
-              [clojure.string :as str]
               [jepsen
-               [cli :as cli]
                [tests :as tests]
-               [db :as db]
-               [util :as ju]
                [client :as client]
                [checker :as checker]
                [nemesis :as nemesis]
@@ -15,16 +11,9 @@
                [independent :as independent]]
               [jepsen.checker.timeline :as timeline]
               [knossos.model :as model]
-              [jepsen.control.util :as cu]
               [jepsen.ignite.support :as s]
               [jepsen.ignite.client :as c])
-    (:import (clojure.lang ExceptionInfo)
-             (java.lang System)
-             (org.apache.ignite Ignition IgniteCache)
-             (org.apache.ignite.cache CacheMode CacheAtomicityMode CacheWriteSynchronizationMode)
-             (org.apache.ignite.configuration CacheConfiguration)
-             (org.apache.ignite.transactions TransactionConcurrency TransactionIsolation)
-             (java.io File FileNotFoundException)))
+    (:import  (java.lang System)))
 
 (defn r   [_ _] {:type :invoke, :f :read, :value nil})
 (defn w   [_ _] {:type :invoke, :f :write, :value (rand-int 5)})

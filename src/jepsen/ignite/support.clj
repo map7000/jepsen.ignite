@@ -3,31 +3,14 @@
             [clojure.string :as str]
             [clojure.java.io :as io]
             [jepsen
-             [cli :as cli]
-             [tests :as tests]
              [control :as c]
              [core :as jepsen]
              [db :as db]
              [util :as ju]
-             [client :as client]
-             [checker :as checker]
-             [nemesis :as nemesis]
-             [generator :as gen]
-             [independent :as independent]]
-            [jepsen.checker.timeline :as timeline]
-            [knossos.model :as model]
-            [jepsen.control.util :as cu])
-  (:import (clojure.lang ExceptionInfo)
-           (org.apache.ignite Ignition IgniteCache)
-           (org.apache.ignite.cache CacheMode CacheAtomicityMode CacheWriteSynchronizationMode)
-           (org.apache.ignite.configuration CacheConfiguration)
-           (org.apache.ignite.transactions TransactionConcurrency TransactionIsolation)
-           (java.lang Integer)
-           (java.io File FileNotFoundException)))
+             [nemesis :as nemesis]]))
 
 (def dir "/jepsen.ignite")
 (def logfile (str dir "/ignite.log"))
-(def pidfile (str dir "/ignite.pid"))
 
 (defn localNodeLogFileName
   [node]
@@ -60,9 +43,9 @@
   (c/exec :touch (str dir "/ignite.log"))
   (c/cd (str dir)
         (info node (str "Copy Ignite-" version))
-        (c/upload (str "./resources/ignite.tar.gz") dir)
-        (info node (str "Untar Ignite-" version))
-        (c/exec :tar :-zxf :ignite.tar.gz)))
+        (c/upload (str "../ignite.zip") dir)
+        (info node (str "Unzip Ignite-" version))
+        (c/exec :unzip :-qqo :ignite.zip)))
 
 (defn configure!
   "Uploads configuration files to the given node."
