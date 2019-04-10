@@ -9,6 +9,7 @@
              (org.apache.ignite.transactions TransactionConcurrency TransactionIsolation)
              (org.apache.ignite.cache.query ScanQuery)
              (org.apache.ignite.lang IgniteBiTuple)
+             (org.gridgain.grid.configuration GridGainConfiguration)
              (java.lang Long)
              (java.io File FileNotFoundException)))
 
@@ -30,7 +31,8 @@
 (def cacheAtomicityModes
   {"TRANSACTIONAL"          CacheAtomicityMode/TRANSACTIONAL
    "ATOMIC"                 CacheAtomicityMode/ATOMIC
-   "TRANSACTIONAL_SNAPSHOT" CacheAtomicityMode/TRANSACTIONAL_SNAPSHOT})
+   "TRANSACTIONAL_SNAPSHOT" CacheAtomicityMode/TRANSACTIONAL_SNAPSHOT
+   })
 (def readFromBackups
   {"true"  true
    "false" false})
@@ -68,33 +70,28 @@
 (defn destroyCache!
   [ignite cacheName]
   (.destroyCache ignite cacheName))
+
 (defn putValue!
-  [ignite cacheName key value]
-  (let [cache (.cache ignite cacheName)] (.put cache (long key) (long value))))
-(defn getValue
-  [ignite cacheName key]
-  (let [cache (.cache ignite cacheName)] (.get cache (long key))))
+  [cache key value]
+  (.put cache (long key) (long value)))
+
 (defn getValue
   [cache key]
   (.get cache (long key)))
+
 (defn updateBalance!
   [ignite cacheName key change]
   (let [cache (.cache ignite cacheName)
         value (.get cache (long key))]
     (.put cache (long key) (long (+ value change)))))
+
 (defn getCacheValues
-  [ignite cacheName transactionConcurrency transactionIsolation n]
-  (let [transaction (.transactions ignite)
-        cache       (.cache ignite cacheName)]
-    (with-open [tx (.txStart transaction transactionConcurrency transactionIsolation)]
-      (.timeout tx 2000)
-      (let [result (vals (.getAll cache (set (range n))))]
-        (.commit tx) result))))
-(defn getCacheKeys
-  [ignite cacheName]
-  (let [cache (.cache ignite cacheName)]
-    (map #(^Long .getKey %)
-         (iterator-seq (.iterator (.query cache (new ScanQuery nil)))))))
+  [cache n]
+  (vals (.getAll cache (set (range n)))))
+
+(defn getCacheValuesScan
+  [cache n]
+    (map #(.getValue %) (iterator-seq (.iterator (.query cache (new ScanQuery nil))))))
 
 (defn startClient!
   []

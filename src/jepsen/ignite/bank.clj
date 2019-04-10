@@ -7,6 +7,7 @@
                [tests :as tests]
                [checker :as checker]
                [generator :as gen]
+               [nemesis :as nemesis]
                [independent :as independent]
                [reconnect :as rc]
                [util :as util
@@ -47,9 +48,10 @@
                    (c/destroyCache! ignite cacheName)
                    (info "Creating table")
                    (c/createCache! ignite cacheName cacheMode cacheAtomicityMode cacheWriteSynchronizationMode readFromBackup)
-                   (dotimes [i n]
-                     (info "Creating account" i starting-balance)
-                     (c/putValue! ignite cacheName i starting-balance)))))
+                   (let [cache (.cache ignite cacheName)]
+                     (dotimes [i n]
+                       (info "Creating account" i starting-balance)
+                       (c/putValue! cache i starting-balance))))))
 
   (invoke! [this test op]
     (case (:f op)
@@ -58,15 +60,16 @@
                   (let [tx (.txStart transaction transactionConcurrency transactionIsolation)]
                     (.timeout tx 2000)
                     (try
-                      (let [value (vals (.getAll cache (set (range n))))]
+                      (let [value (c/getCacheValues cache n)]
                         (.commit tx)
                         (assoc op :type :ok :value value))
                       (catch org.apache.ignite.transactions.TransactionTimeoutException eTimeOut (info "TransactionTimeoutException") (assoc op :type :fail, :error [:timeout]))
-                      (catch org.apache.ignite.transactions.TransactionDeadlockException eDeadLock (info "TransactionDeadlockException") (assoc op :type :fail, :error [:deadlock]))
+                      (catch org.apache.ignite.transactions.TransactionDeadlockException eDeadLock (info "TransactionDeadlockException")
+                        (assoc op :type :fail, :error [:deadlock]))
                       (catch org.apache.ignite.transactions.TransactionOptimisticException eOptimistic (info "TransactionOptimisticException")
                         (assoc op :type :fail, :error [:optimistic]))
-                      (catch javax.cache.CacheException e (info "exception") (assoc op :type :fail, :error [:javax.cache.CacheException]))
-                      (catch java.lang.Exception e2 (info "exception2") (assoc op :type :fail, :error [:java.lang.Exception]))
+                      (catch javax.cache.CacheException e (assoc op :type :fail, :error [:javax.cache.CacheException]))
+                      (catch java.lang.Exception e2 (assoc op :type :fail, :error [:java.lang.Exception]))
                       (finally (.close tx)))))
           :transfer
           (let [transaction (.transactions ignite)
@@ -84,12 +87,13 @@
                    (do (.commit tx) (assoc op :type :fail, :error [:negative to b2]))
                    true
                    (do
-                     (c/putValue! ignite cacheName from b1)
-                     (c/putValue! ignite cacheName to b2)
+                     (c/putValue! cache from b1)
+                     (c/putValue! cache to b2)
                      (.commit tx)
                      (assoc op :type :ok))))
                 (catch org.apache.ignite.transactions.TransactionTimeoutException eTimeOut (info "TransactionTimeoutException") (assoc op :type :fail, :error [:timeout]))
-                (catch org.apache.ignite.transactions.TransactionDeadlockException eDeadLock (info "TransactionDeadlockException") (assoc op :type :fail, :error [:deadlock]))
+                (catch org.apache.ignite.transactions.TransactionDeadlockException eDeadLock (info "TransactionDeadlockException")
+                  (assoc op :type :fail, :error [:deadlock]))
                 (catch org.apache.ignite.transactions.TransactionOptimisticException eOptimistic (info "TransactionOptimisticException")
                   (assoc op :type :fail, :error [:optimistic]))
                 (catch javax.cache.CacheException e (info "exception") (assoc op :type :fail, :error [:javax.cache.CacheException]))
@@ -167,16 +171,23 @@
         transactionIsolation          (get c/transactionIsolations (:transactionIsolation opts))]
     (System/setProperty "IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD" "60000")
     (merge tests/noop-test
-           {:name      (str "BANK_" (:name opts) "_" (:cacheMode opts) "_" (:cacheAtomicityMode opts) "_" (:readFromBackup opts) "_" (:cacheWriteSynchronizationMode opts) "_" (:transactionConcurrency opts) "_" (:transactionIsolation opts))
+           opts
+           {:name      (str (:name opts) "_BANK_" (:cacheMode opts) "_" (:cacheAtomicityMode opts) "_" (:readFromBackup opts) "_" (:cacheWriteSynchronizationMode opts) "_" (:transactionConcurrency opts) "_" (:transactionIsolation opts))
             :db        (s/db "2.7.0")
             :client    (BankClient. nil (:cacheName opts) cacheMode cacheAtomicityMode readFromBackup cacheWriteSynchronizationMode transactionConcurrency transactionIsolation (atom false) 5 10)
             :model     {:n 5 :total 50}
             :generator (->> (gen/mix [bank-read bank-diff-transfer])
                             (gen/stagger 1/10)
-                            (gen/nemesis nil)
+                            (gen/nemesis
+                             (gen/seq
+                              (cycle
+                               [(gen/sleep 60)
+                                {:type :info, :f :start}
+                                (gen/sleep 60)
+                                {:type :info, :f :stop}])))
                             (gen/time-limit (:time-limit opts)))
+            :nemesis   (s/killer)
             :checker   (checker/compose
                         {:perf     (checker/perf)
                          :timeline (timeline/html)
-                         :details  (bank-checker)})}
-           opts)))
+                         :details  (bank-checker)})})))
