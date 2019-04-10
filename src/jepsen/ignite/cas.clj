@@ -92,7 +92,7 @@
     (System/setProperty "IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD" "60000")
     (merge tests/noop-test
            opts
-           {:name      (str (:name opts) "_" (:cacheMode opts) "_" (:cacheAtomicityMode opts) "_" (:readFromBackup opts) "_" (:cacheWriteSynchronizationMode opts) "_" (:transactionConcurrency opts) "_" (:transactionIsolation opts))
+           {:name      (str (:name opts) "_BANK_" (:cacheMode opts) "_" (:cacheAtomicityMode opts) "_" (:readFromBackup opts) "_" (:cacheWriteSynchronizationMode opts) "_" (:transactionConcurrency opts) "_" (:transactionIsolation opts))
             :db        (s/db "2.7.0")
             :client    (CasRegisterClient. nil (:cacheName opts) cacheMode cacheAtomicityMode readFromBackup cacheWriteSynchronizationMode transactionConcurrency transactionIsolation)
             :generator (->>

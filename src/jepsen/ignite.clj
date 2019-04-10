@@ -3,7 +3,7 @@
               [clojure.string :as str]
               [jepsen
                [cli :as cli]
-               [tests :as tests]
+               ;               [tests :as tests]
                [control :as c]
                [db :as db]
                [util :as ju]
@@ -27,10 +27,16 @@
              (org.apache.ignite.transactions TransactionConcurrency TransactionIsolation)
              (java.io File FileNotFoundException)))
 
+(def testNames
+  {"cas"  cas/test
+   "bank" bank/test})
 
 (def cli-opts
   "Additional command line options."
-  [[nil "--name NAME" "Test name" :default "Ignite"
+  [[nil
+    "--name NAME"
+    "Test name"
+    :default  "Ignite"
     :parse-fn read-string]
    [nil
     "--cacheName CacheName"
@@ -66,6 +72,11 @@
     "--transactionIsolation TransactionIsolation"
     "TransactionIsolation"
     :default  "REPEATABLE_READ"
+    :parse-fn read-string]
+   [nil
+    "--test TestName"
+    "TestName"
+    :default  "cas"
     :parse-fn read-string]])
 
 
@@ -73,10 +84,12 @@
   "Handles command line arguments. Can either run a test, or a web server for
   browsing results."
   [& args]
-  (cli/run!
-    (merge
+  (let [testName (get testNames (:test args))]
+    (info testName)
+    (cli/run!
+     (merge
       (cli/single-test-cmd
-        {:test-fn  bank/test
-         :opt-spec cli-opts})
+       {:test-fn  bank/test
+        :opt-spec cli-opts})
       (cli/serve-cmd))
-    args))
+     args)))
