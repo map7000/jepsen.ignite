@@ -1,17 +1,11 @@
 (ns jepsen.ignite.client
-    (:require [clojure.tools.logging :refer :all]
-              [clojure.string :as str]
-              [clojure.java.io :as io])
-    (:import (clojure.lang ExceptionInfo)
-             (org.apache.ignite Ignition IgniteCache)
+    (:require [clojure.tools.logging :refer :all])
+    (:import (org.apache.ignite Ignition)
              (org.apache.ignite.cache CacheMode CacheAtomicityMode CacheWriteSynchronizationMode)
              (org.apache.ignite.configuration CacheConfiguration)
              (org.apache.ignite.transactions TransactionConcurrency TransactionIsolation)
              (org.apache.ignite.cache.query ScanQuery)
-             (org.apache.ignite.lang IgniteBiTuple)
-             (org.gridgain.grid.configuration GridGainConfiguration)
-             (java.lang Long)
-             (java.io File FileNotFoundException)))
+             (java.lang Long)))
 
 ;Настройки кэша
 ;CacheMode	  CacheAtomicityMode		ReadFromBackup	CacheWriteSynchronizationMode
